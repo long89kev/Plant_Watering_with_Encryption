@@ -13,8 +13,8 @@ static const char *MQTT_SERVER = "broker.hivemq.com";
 static const uint16_t MQTT_PORT = 1883;
 
 // Topic cho Pub/Sub
-static const char *TOPIC_SENSOR = "esp32/sensors";
-static const char *TOPIC_CMD = "esp32/pump_cmd";
+static const char *TOPIC_SENSOR = "device/sensor/data";
+static const char *TOPIC_CMD = "device/command";
 
 // Client MQTT
 static WiFiClient s_espClient;                 // TCP Client
@@ -318,21 +318,33 @@ void task_MQTT(void *pvParameter)
 
         sha2(temp, hum, soil, total_ml, rain);
 
-        // 5. Format payload
-        // char payload[128];
-        // snprintf(payload, sizeof(payload),
-        //          "{\"temp\":%.2f,\"hum\":%.2f,"
-        //          "\"soil\":%.2f,\"rain\":%.2f,\"water_ml\":%.2f}",
-        //          temp, hum, soil, rain, total_ml);
+        // // 5. Format payload
+        // // char payload[128];
+        // // snprintf(payload, sizeof(payload),
+        // //          "{\"temp\":%.2f,\"hum\":%.2f,"
+        // //          "\"soil\":%.2f,\"rain\":%.2f,\"water_ml\":%.2f}",
+        // //          temp, hum, soil, rain, total_ml);
+
+        // if (s_mqttClient.connected()){
+        //     s_mqttClient.publish(TOPIC_SENSOR, output52, 52);
+        // }
+        //     Serial.print("SHA256 ");
+        //     for (int i = 0; i < 52; i++) {
+        //         Serial.print(output52[i], HEX);
+        //     }
+        //     Serial.println();
+
+        char payload[128];
+        snprintf(payload, sizeof(payload),
+                 "{\"temp\":%.2f,\"hum\":%.2f,"
+                 "\"soil\":%.2f,\"rain\":%.2f,\"water_ml\":%.2f}",
+                 temp, hum, soil, rain, total_ml);
 
         if (s_mqttClient.connected()){
-            s_mqttClient.publish(TOPIC_SENSOR, output52, 52);
+            s_mqttClient.publish(TOPIC_SENSOR, payload);
+            Serial.print("Published: ");
+            Serial.println(payload);
         }
-            Serial.print("SHA256 ");
-            for (int i = 0; i < 52; i++) {
-                Serial.print(output52[i], HEX);
-            }
-            Serial.println();
         
         vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(5000));
     }
