@@ -7,7 +7,7 @@
 #include "mbedtls/sha256.h"
 
 //#define ENCRYPTION
-#define NON_ENCRYPTION
+#define ENCRYPTION
 
 static const char *MQTT_SERVER = "broker.hivemq.com";
 static const uint16_t MQTT_PORT = 1883;
@@ -154,12 +154,14 @@ static void mqttCallback(char *topic, uint8_t *payload, unsigned int length)
 
         uint32_t duration = doc["duration"] | 0;     // giây
         uint32_t durationMs = doc["durationMs"] | 0; // ms
-        const char *modeJson = doc["mode"] | "manual";
+        const char *modeStr = doc["mode"] | "manual";
 
         if (durationMs == 0 && duration > 0)
         {
             durationMs = duration * 1000; // fallback: từ giây -> ms
         }
+
+        uint8_t mode = (strcmp(modeStr, "automatic") == 0) ? 1 : 0;
 
         if (xSerialMutex != NULL &&
             xSemaphoreTake(xSerialMutex, portMAX_DELAY) == pdPASS)
@@ -201,7 +203,9 @@ static void mqttCallback(char *topic, uint8_t *payload, unsigned int length)
     {
         // {"command":"set_mode","timestamp":..., "mode":"automatic"}
 
-        const char *modeJson = doc["mode"] | "";
+        const char *modeStr = doc["mode"] | "";
+        
+        uint8_t mode = (strcmp(modeStr, "automatic") == 0) ? 1 : 0;
 
         if (xSerialMutex != NULL &&
             xSemaphoreTake(xSerialMutex, portMAX_DELAY) == pdPASS)
@@ -210,11 +214,11 @@ static void mqttCallback(char *topic, uint8_t *payload, unsigned int length)
             Serial.print("  timestamp = ");
             Serial.println(timestamp);
             Serial.print("  mode      = ");
-            Serial.println(modeJson);
+            Serial.println(modeStr);
             xSemaphoreGive(xSerialMutex);
         }
 
-        pump_set_mode(modeJson);
+        pump_set_mode(mode);
     }
     else
     {
