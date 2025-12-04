@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # MQTT Broker (HiveMQ or Mosquitto)
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883"    # MQTT protocol
+      - "9001:9001"    # WebSocket
+    volumes:
+      - ./mqtt-config:/mosquitto/config
+      - ./mqtt-data:/mosquitto/data
+    environment:
+      - MOSQUITTO_CONFIG_PATH=/mosquitto/config/mosquitto.conf
+    networks:
+      - watering-network
+
+  # Backend server
+  backend:
+    build: ./backend
+    container_name: watering-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - MQTT_SERVER=mqtt-broker
+      - MQTT_PORT=1883
+    depends_on:
+      - mqtt-broker
+    networks:
+      - watering-network
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+networks:
+  watering-network:
+    driver: bridge

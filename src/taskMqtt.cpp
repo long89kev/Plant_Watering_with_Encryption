@@ -13,8 +13,8 @@ static const char *MQTT_SERVER = "broker.hivemq.com";
 static const uint16_t MQTT_PORT = 1883;
 
 // Topic cho Pub/Sub
-static const char *TOPIC_SENSOR = "esp32/sensors";
-static const char *TOPIC_CMD = "esp32/pump_cmd";
+static const char *TOPIC_SENSOR = "device/sensor/data";
+static const char *TOPIC_CMD = "device/command";
 
 // Client MQTT
 static WiFiClient s_espClient;                 // TCP Client
@@ -91,7 +91,6 @@ void sha2(float temp, float hum, float soid, float total_ml, float rain){
   memcpy(output52 + 20, out32, 32);
 }
 
-
 #ifdef ENCRYPTION
 
 static void mqttCallback(char *topic, uint8_t *payload, unsigned int length)
@@ -154,12 +153,14 @@ static void mqttCallback(char *topic, uint8_t *payload, unsigned int length)
 
         uint32_t duration = doc["duration"] | 0;     // giây
         uint32_t durationMs = doc["durationMs"] | 0; // ms
-        const char *modeJson = doc["mode"] | "manual";
+        const char *modeStr = doc["mode"] | "manual";
 
         if (durationMs == 0 && duration > 0)
         {
             durationMs = duration * 1000; // fallback: từ giây -> ms
         }
+
+        uint8_t mode = (strcmp(modeStr, "automatic") == 0) ? 1 : 0;
 
         if (xSerialMutex != NULL &&
             xSemaphoreTake(xSerialMutex, portMAX_DELAY) == pdPASS)
@@ -170,11 +171,11 @@ static void mqttCallback(char *topic, uint8_t *payload, unsigned int length)
             Serial.print("  durationMs = ");
             Serial.println(durationMs);
             Serial.print("  mode = ");
-            Serial.println(modeJson);
+            Serial.println(modeStr);
             xSemaphoreGive(xSerialMutex);
         }
 
-        pump_start(durationMs, modeJson);
+        pump_start(durationMs, mode);
     }
     // ---- pump_stop ----
     else if (strcmp(cmd, "pump_stop") == 0)
@@ -201,7 +202,9 @@ static void mqttCallback(char *topic, uint8_t *payload, unsigned int length)
     {
         // {"command":"set_mode","timestamp":..., "mode":"automatic"}
 
-        const char *modeJson = doc["mode"] | "";
+        const char *modeStr = doc["mode"] | "";
+        
+        uint8_t mode = (strcmp(modeStr, "automatic") == 0) ? 1 : 0;
 
         if (xSerialMutex != NULL &&
             xSemaphoreTake(xSerialMutex, portMAX_DELAY) == pdPASS)
@@ -210,11 +213,11 @@ static void mqttCallback(char *topic, uint8_t *payload, unsigned int length)
             Serial.print("  timestamp = ");
             Serial.println(timestamp);
             Serial.print("  mode      = ");
-            Serial.println(modeJson);
+            Serial.println(modeStr);
             xSemaphoreGive(xSerialMutex);
         }
 
-        pump_set_mode(modeJson);
+        pump_set_mode(mode);
     }
     else
     {
@@ -316,23 +319,36 @@ void task_MQTT(void *pvParameter)
             xSemaphoreGive(xSensorMutex);
         }
 
+        // 5. Sanitize NaN values
+        if (isnan(temp)) temp = 0.0;
+        if (isnan(hum)) hum = 0.0;
+        if (isnan(soil)) soil = 0.0;
+        if (isnan(rain)) rain = 0.0;
+        if (isnan(total_ml)) total_ml = 0.0;
+
         sha2(temp, hum, soil, total_ml, rain);
 
-        // 5. Format payload
-        // char payload[128];
-        // snprintf(payload, sizeof(payload),
-        //          "{\"temp\":%.2f,\"hum\":%.2f,"
-        //          "\"soil\":%.2f,\"rain\":%.2f,\"water_ml\":%.2f}",
-        //          temp, hum, soil, rain, total_ml);
+        // 6. Format payload - use ArduinoJson for safer serialization
+        StaticJsonDocument<256> sensorDoc;
+        sensorDoc["temp"] = serialized(String(temp, 2));
+        sensorDoc["hum"] = serialized(String(hum, 2));
+        sensorDoc["soil"] = serialized(String(soil, 2));
+        sensorDoc["rain"] = serialized(String(rain, 2));
+        sensorDoc["water_ml"] = serialized(String(total_ml, 2));
+
+        char payload[256];
+        serializeJson(sensorDoc, payload, sizeof(payload));
 
         if (s_mqttClient.connected()){
-            s_mqttClient.publish(TOPIC_SENSOR, output52, 52);
-        }
-            Serial.print("SHA256 ");
-            for (int i = 0; i < 52; i++) {
-                Serial.print(output52[i], HEX);
+            s_mqttClient.publish(TOPIC_SENSOR, payload);
+            if (xSerialMutex != NULL &&
+                xSemaphoreTake(xSerialMutex, portMAX_DELAY) == pdPASS)
+            {
+                Serial.print("Published: ");
+                Serial.println(payload);
+                xSemaphoreGive(xSerialMutex);
             }
-            Serial.println();
+        }
         
         vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(5000));
     }
