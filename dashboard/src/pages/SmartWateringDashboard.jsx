@@ -32,6 +32,7 @@ export default function SmartWateringDashboard() {
     hum: 66,
     soil: 60,
     level: 56,
+    rain: 0,
     flow: 0,
   });
 
@@ -62,6 +63,7 @@ export default function SmartWateringDashboard() {
         hum: data.hum || 0,
         soil: data.soil || 0,
         level: data.level || 0,
+        rain: data.rain || 0,
         flow: data.flow || 0,
       });
     };
