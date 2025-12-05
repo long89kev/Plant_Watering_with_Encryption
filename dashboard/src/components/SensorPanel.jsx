@@ -60,14 +60,14 @@ export default function SensorPanel({ sensors }) {
         <div className="flex justify-center">
           <div className="text-center">
             <CircleGauge
-              value={sensors.level}
-              label="Water level"
+              value={sensors.rain}
+              label="Rain sensor"
               unit="%"
-              color="#38BDF8"
+              color="#3B82F6"
               size={gaugeSize}
               stroke={gaugeStroke}
             />
-            <div className="mt-2 text-xs text-gray-500">Tank</div>
+            <div className="mt-2 text-xs text-gray-500">Detection</div>
           </div>
         </div>
       </div>
