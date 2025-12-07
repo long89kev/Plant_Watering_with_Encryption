@@ -5,12 +5,10 @@
 #include "pump_control.h"
 #include "global.h"
 #include "mbedtls/sha256.h"
+#include "credentials.h"
 
 //#define ENCRYPTION
 #define NON_ENCRYPTION
-
-static const char *MQTT_SERVER = "broker.hivemq.com";
-static const uint16_t MQTT_PORT = 1883;
 
 // Topic cho Pub/Sub
 static const char *TOPIC_SENSOR = "device/sensor/data";
@@ -68,7 +66,7 @@ static void mqttCallback(char *topic, uint8_t *payload, unsigned int len)
 
  // ============== SHA256 ================
 
- uint8_t output52[52];
+uint8_t output52[52];
 
 void sha2(float temp, float hum, float soid, float total_ml, float rain){
   uint8_t input[20];

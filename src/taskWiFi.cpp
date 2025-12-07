@@ -1,7 +1,5 @@
 #include "taskWiFi.h"
-
-static const char *WIFI_SSID = "Minh Nhat";
-static const char *WIFI_PASS = "14231009";
+#include "credentials.h"
 
 void WiFi_Connect()
 {
